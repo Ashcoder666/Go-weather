@@ -56,18 +56,13 @@ func getWeather() {
 	// ip := string(body)
 	// fmt.Println("Your IP address is:", ip)
 
-	headersMap := make(map[string]string)
-
-	headersMap["x-rapidapi-host"] = "weatherapi-com.p.rapidapi.com"
-	headersMap["x-rapidapi-key"] = "c256ecdf6emshcedc5242d337c13p19a862jsnee79af877651"
-
 	ipAddress, _ := getIP()
 
-	lat, lon, _ := getLatLonByIP(ipAddress)
+	// lat, lon, _ := getLatLonByIP(ipAddress)
 
-	fullUrl := fmt.Sprintf("https://weatherapi-com.p.rapidapi.com/current.json?q=%f,%f", lat, lon)
+	fullUrl := fmt.Sprintf("https://weatherapi-com.p.rapidapi.com/current.json?q=%s", ipAddress)
 
-	getWeatherDeatils(fullUrl, "GET", 6, headersMap)
+	GetWeatherDeatils(fullUrl, "GET", 6)
 
 }
 
@@ -86,7 +81,7 @@ type IPResponse struct {
 	Origin string `json:"origin"`
 }
 
-func getWeatherDeatils(url, method string, timeout int, headers map[string]string) {
+func GetWeatherDeatils(url, method string, timeout int) {
 	client := http.Client{Timeout: time.Duration(timeout) * time.Second}
 	req, err := http.NewRequest(method, url, nil)
 	// fmt.Println(req)
@@ -95,9 +90,13 @@ func getWeatherDeatils(url, method string, timeout int, headers map[string]strin
 		fmt.Println(err)
 	}
 
+	headersMap := make(map[string]string)
+
+	headersMap["x-rapidapi-host"] = "weatherapi-com.p.rapidapi.com"
+	headersMap["x-rapidapi-key"] = "c256ecdf6emshcedc5242d337c13p19a862jsnee79af877651"
 	// req.Header.Add(headers)
 
-	for index, header := range headers {
+	for index, header := range headersMap {
 		// fmt.Println(index, header)
 		req.Header.Add(index, header)
 	}
@@ -115,6 +114,8 @@ func getWeatherDeatils(url, method string, timeout int, headers map[string]strin
 	if err != nil {
 		fmt.Println("breaaked")
 	}
+
+	fmt.Println(string(body))
 
 	var weatherData WeatherResponse
 

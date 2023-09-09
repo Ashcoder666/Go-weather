@@ -4,8 +4,10 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -42,23 +44,129 @@ func init() {
 }
 
 func getWeather() {
-	client := http.Client{Timeout: time.Duration(5) * time.Second}
-	url := "https://weatherapi-com.p.rapidapi.com/current.json?q=kochi"
-	req, err := http.NewRequest("GET", url, nil)
+	// resp, err := http.Get("http://httpbin.org/ip")
+
+	// if err != nil {
+	// 	fmt.Println("Error:", err)
+	// 	return
+	// }
+
+	// body, _ := io.ReadAll(resp.Body)
+
+	// ip := string(body)
+	// fmt.Println("Your IP address is:", ip)
+
+	headersMap := make(map[string]string)
+
+	headersMap["x-rapidapi-host"] = "weatherapi-com.p.rapidapi.com"
+	headersMap["x-rapidapi-key"] = "c256ecdf6emshcedc5242d337c13p19a862jsnee79af877651"
+
+	ipAddress, _ := getIP()
+
+	lat, lon, _ := getLatLonByIP(ipAddress)
+
+	fullUrl := fmt.Sprintf("https://weatherapi-com.p.rapidapi.com/current.json?q=%f,%f", lat, lon)
+
+	getWeatherDeatils(fullUrl, "GET", 6, headersMap)
+
+}
+
+type WeatherResponse struct {
+	Location struct {
+		Name    string `json:"name"`
+		Region  string `json:"region"`
+		Country string `json:"country"`
+	} `json:"location"`
+	Current struct {
+		TempC float32 `json:"temp_c"`
+	} `json:"current"`
+}
+
+type IPResponse struct {
+	Origin string `json:"origin"`
+}
+
+func getWeatherDeatils(url, method string, timeout int, headers map[string]string) {
+	client := http.Client{Timeout: time.Duration(timeout) * time.Second}
+	req, err := http.NewRequest(method, url, nil)
+	// fmt.Println(req)
 	if err != nil {
-		fmt.Println("Error : ", err)
+
+		fmt.Println(err)
 	}
 
-	req.Header.Add("x-rapidapi-host", "weatherapi-com.p.rapidapi.com")
+	// req.Header.Add(headers)
 
-	req.Header.Add("x-rapidapi-key", "c256ecdf6emshcedc5242d337c13p19a862jsnee79af877651")
+	for index, header := range headers {
+		// fmt.Println(index, header)
+		req.Header.Add(index, header)
+	}
 
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error : ", err)
+
+		fmt.Println(err)
 	}
+
 	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
-	fmt.Printf("Body : %s", body)
+	body, err := io.ReadAll(res.Body)
+
+	if err != nil {
+		fmt.Println("breaaked")
+	}
+
+	var weatherData WeatherResponse
+
+	errr := json.Unmarshal(body, &weatherData)
+
+	if errr != nil {
+		fmt.Println("breaaked")
+	}
+
+	// fmt.Printf("Body : %s", body)
+	fmt.Printf("Location: %s, %s, %s\n", weatherData.Location.Name, weatherData.Location.Region, weatherData.Location.Country)
+	fmt.Printf("Temperature (Celsius): %.1f\n", weatherData.Current.TempC)
+}
+
+func getLatLonByIP(ipAddress string) (float64, float64, error) {
+	url := "http://ip-api.com/json/" + ipAddress
+
+	// Make an HTTP GET request to the IP geolocation API
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0.0, 0.0, err
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Lat float64 `json:"lat"`
+		Lon float64 `json:"lon"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return 0, 0, err
+	}
+
+	return data.Lat, data.Lon, nil
+}
+
+func getIP() (string, error) {
+	// Make an HTTP GET request to httpbin.org to fetch your IP address
+	resp, err := http.Get("http://httpbin.org/ip")
+	if err != nil {
+		return "", errors.New("An error occurred: " + err.Error())
+	}
+	defer resp.Body.Close()
+
+	var ipResponse IPResponse
+	if err := json.NewDecoder(resp.Body).Decode(&ipResponse); err != nil {
+		return "", err
+	}
+	// Read the response body
+	// body, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	return "", errors.New("An error occurred: " + err.Error())
+	// }
+
+	return ipResponse.Origin, nil
 }
